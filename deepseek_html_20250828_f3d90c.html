@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>SATOMIC - Mission Control</title>
+
+<!-- Font Awesome for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+  :root{
+    --bg: #071029;           /* solid dark background */
+    --panel: #0c1a2b;
+    --muted: #9fb7d9;
+    --accent: #ffd166;
+    --neon: #7b61ff;
+    --not: #ff7b6b;
+    --progress: #4fc3f7;
+    --complete: #6ee7b7;
+    --total: #a78bfa;
+  }
+  *{box-sizing:border-box;font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; color:#e6f3ff}
+  html,body{height:100%;margin:0;background:var(--bg);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+  .wrap{max-width:980px;margin:12px auto;padding:14px}
+
+  /* Header: logo centered top, profile below */
+  header.header {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+    margin-bottom:12px;
+  }
+  .logo-container{width:160px;height:auto}
+  .logo-container img{width:100%;height:auto;display:block}
+  .profile {
+    display:flex;
+    gap:12px;
+    align-items:center;
+    padding:10px 14px;
+    background:var(--panel);
+    border-radius:12px;
+    width:100%;
+    max-width:760px;
+    justify-content:center;
+    border:1px solid rgba(255,255,255,0.03);
+  }
+  .avatar {
+    width:48px;height:48px;border-radius:50%;background:#0b2a3a;display:flex;align-items:center;justify-content:center;overflow:hidden;border:3px solid rgba(255,255,255,0.03);
+  }
+  .avatar img{width:100%;height:100%;object-fit:cover;display:block}
+  .avatar-initial{font-weight:800;font-size:16px;color:var(--accent)}
+  .profile-info{display:flex;flex-direction:column;align-items:center}
+  .profile-info .name{font-weight:800;font-size:16px;text-transform:uppercase}
+  .profile-info .role{font-size:13px;color:var(--muted)}
+
+  /* Login box (centered card) */
+  .login-card{max-width:420px;margin:12px auto;padding:16px;border-radius:12px;background:var(--panel);border:1px solid rgba(255,255,255,0.03)}
+  .login-card h2{margin:0 0 10px 0;font-size:18px}
+  .login-card input, .login-card select, .login-card button{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+  .login-card input::placeholder{color:rgba(255,255,255,0.5)}
+  .login-card button{margin-top:10px;background:var(--accent);color:#041225;border:none;font-weight:700;cursor:pointer}
+
+  /* Stats grid 2 columns */
+  .stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px}
+  .stat {padding:12px;border-radius:10px;background:var(--panel);display:flex;justify-content:space-between;align-items:center;border:1px solid rgba(255,255,255,0.02);position:relative}
+  .stat .left{display:flex;flex-direction:column}
+  .stat small{font-size:12px;color:var(--muted);text-transform:uppercase}
+  .bubble{min-width:56px;height:56px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#041225;position:relative}
+  .bubble.total{background:var(--total)}
+  .bubble.not{background:var(--not)}
+  .bubble.progress{background:var(--progress)}
+  .bubble.complete{background:var(--complete)}
+  .stat-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #fff;
+    color: #041225;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-weight: 800;
+    font-size: 12px;
+    min-width: 24px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  }
+  .stat-badge.total-badge {background: var(--total); color: #041225;}
+  .stat-badge.not-badge {background: var(--not); color: #041225;}
+  .stat-badge.progress-badge {background: var(--progress); color: #041225;}
+  .stat-badge.complete-badge {background: var(--complete); color: #041225;}
+
+  /* Goal card */
+  .goal{margin-top:12px;padding:12px;border-radius:10px;background:var(--panel);display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid rgba(255,255,255,0.02)}
+  .goal .left{display:flex;align-items:center;gap:12px}
+  .goal .icon{width:42px;height:42px;border-radius:10px;background:var(--neon);display:flex;align-items:center;justify-content:center;color:#041225;font-weight:800}
+  .goal .text{display:flex;flex-direction:column}
+  .goal .text small{font-size:12px;color:var(--muted);text-transform:uppercase}
+  .goal .text h4{margin:6px 0 0 0;font-size:15px;text-transform:uppercase;color:#fff}
+  .goal .actions{display:flex;gap:8px;align-items:center}
+  .goal .actions input{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+
+  /* Tasks panels */
+  .panels{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+  .panel{background:var(--panel);padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.02)}
+  .panel .header{display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+  .panel h5{margin:0;font-size:14px;color:#fff}
+  .panel .count{font-weight:800;color:var(--muted)}
+  .panel .body{margin-top:10px;max-height:420px;overflow:auto}
+  .task{padding:10px;border-radius:8px;margin-bottom:8px;background:rgba(255,255,255,0.02);display:flex;flex-direction:column}
+  .task .title{font-weight:800;text-transform:uppercase;color:#fff}
+  .task .notes{font-size:13px;color:var(--muted);margin-top:6px;text-transform:uppercase}
+  .task .meta{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+  .pill{padding:6px 8px;border-radius:999px;font-weight:800;font-size:12px;color:#fff}
+  .pill.not{background:rgba(255,123,107,0.12);color:var(--not)}
+  .pill.progress{background:rgba(79,195,247,0.12);color:var(--progress)}
+  .pill.complete{background:rgba(110,231,183,0.12);color:var(--complete)}
+  .task-actions button{background:transparent;border:1px solid rgba(255,255,255,0.03);padding:6px;border-radius:8px;color:var(--muted);cursor:pointer}
+
+  /* Footer control */
+  footer.control{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:var(--panel);padding:10px 18px;border-radius:999px;display:flex;gap:18px;align-items:center;border:1px solid rgba(255,255,255,0.02);z-index:200}
+  .control .icon{font-size:20px;color:var(--muted);cursor:pointer;position:relative}
+  .control .badge{position:absolute;top:-8px;right:-8px;background:var(--not);color:#041225;padding:4px 6px;border-radius:999px;font-weight:800;font-size:12px}
+  .control .add{width:64px;height:64px;border-radius:999px;background:var(--neon);display:flex;align-items:center;justify-content:center;font-size:22px;color:#041225;border:none;cursor:pointer}
+
+  /* Modal styles */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:400;padding:12px}
+  .modal{width:100%;max-width:900px;background:var(--panel);padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,0.02)}
+  .modal .header{display:flex;justify-content:space-between;align-items:center}
+  .modal .header h4{color:#fff;margin:0}
+  .modal .body{margin-top:12px}
+  .close-btn{background:transparent;border:1px solid rgba(255,255,255,0.03);padding:6px;border-radius:8px;color:var(--muted);cursor:pointer}
+  
+  /* Form elements in modal */
+  .modal label{display:block;margin-bottom:6px;color:#fff;font-weight:600}
+  .modal input, .modal select, .modal textarea{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:#fff;margin-bottom:12px}
+  .modal input::placeholder{color:rgba(255,255,255,0.5)}
+
+  /* Responsive */
+  @media(max-width:900px){
+    .panels{grid-template-columns:1fr}
+    .stats-grid{grid-template-columns:repeat(2,1fr)}
+    .wrap{padding:10px}
+  }
+  @media(max-width:500px){
+    .stats-grid{grid-template-columns:repeat(2,1fr); gap:8px;}
+    footer.control{left:50%;transform:translateX(-50%);right:auto;width:auto}
+    .stat {padding:10px;}
+    .bubble {min-width:48px; height:48px; font-size:14px;}
+    .stat-badge {
+      top: -6px;
+      right: -6px;
+      padding: 3px 6px;
+      font-size: 11px;
+      min-width: 20px;
+    }
+  }
+  @media(max-width:400px){
+    .stats-grid{grid-template-columns:repeat(2,1fr)}
+    .stat {flex-direction: column; text-align: center; gap: 8px;}
+    .stat .left {align-items: center;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HEADER -->
+  <header class="header">
+    <!-- Logo (centered) -->
+    <div class="logo-container">
+      <img src="logo-atomic.png" alt="ASMO TUBAN Mission Control" id="logoImg" />
+    </div>
+
+    <!-- Profile (avatar + name + role) -->
+    <div class="profile" id="profilePanel" style="display:none">
+      <div class="avatar" id="avatarWrap">
+        <img src="avatar-default.png" alt="Avatar" id="avatarImg" onerror="this.style.display='none';document.getElementById('avatarInitial').style.display='flex'"/>
+        <div id="avatarInitial" class="avatar-initial" style="display:none">OP</div>
+      </div>
+      <div class="profile-info">
+        <div class="name" id="profileName">NAMA LENGKAP</div>
+        <div class="role" id="profileRole">ROLE</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- LOGIN (if not logged in) -->
+  <div class="login-card" id="loginCard">
+    <h2>ACCESS MISSION CONTROL</h2>
+    <input id="inputName" type="text" placeholder="Nama Lengkap (contoh: MHD SAKTI)" />
+    <select id="inputRole">
+      <option value="">Pilih Role</option>
+      <option>Mission Commander</option>
+      <option>Flight Director</option>
+      <option>Systems Engineer</option>
+      <option>Payload Specialist</option>
+      <option>Communications Officer</option>
+    </select>
+    <button id="btnLogin">LOGIN</button>
+  </div>
+
+  <!-- DASHBOARD CONTENT (hidden until login) -->
+  <div id="dashboard" style="display:none">
+    <!-- Stats 2-column -->
+    <div class="stats-grid">
+      <div class="stat">
+        <div class="left">
+          <small>Total Missions</small>
+        </div>
+        <div class="bubble total" id="bubbleTotal">
+          <i class="fas fa-bullseye"></i>
+          <div class="stat-badge total-badge" id="badgeTotal">0</div>
+        </div>
+      </div>
+
+      <div class="stat">
+        <div class="left">
+          <small>Not Started</small>
+        </div>
+        <div class="bubble not" id="bubbleNot">
+          <i class="fas fa-hourglass-start"></i>
+          <div class="stat-badge not-badge" id="badgeNot">0</div>
+        </div>
+      </div>
+
+      <div class="stat">
+        <div class="left">
+          <small>In Progress</small>
+        </div>
+        <div class="bubble progress" id="bubbleProg">
+          <i class="fas fa-rocket"></i>
+          <div class="stat-badge progress-badge" id="badgeProg">0</div>
+        </div>
+      </div>
+
+      <div class="stat">
+        <div class="left">
+          <small>Completed</small>
+        </div>
+        <div class="bubble complete" id="bubbleComp">
+          <i class="fas fa-check-circle"></i>
+          <div class="stat-badge complete-badge" id="badgeComp">0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Monthly Goal -->
+    <div class="goal" style="margin-top:12px">
+      <div class="left">
+        <div class="icon"><i class="fas fa-bullseye"></i></div>
+        <div class="text">
+          <small>Monthly Goal</small>
+          <h4 id="goalText">ACHIEVE 150% SALES TARGET</h4>
+        </div>
+      </div>
+      <div class="actions">
+        <input id="goalInput" style="display:none" />
+        <button id="btnEditGoal" class="close-btn"><i class="fas fa-edit"></i></button>
+        <button id="btnSaveGoal" class="close-btn" style="display:none"><i class="fas fa-save"></i></button>
+      </div>
+    </div>
+
+    <!-- Panels: Not Started / In Progress / Completed (collapsible) -->
+    <div class="panels">
+      <div class="panel" id="panelNot">
+        <div class="header" onclick="toggle('Not')">
+          <h5 style="color: var(--not)">Not Started</h5>
+          <div class="count" id="countNot">0</div>
+        </div>
+        <div class="body" id="bodyNot"></div>
+      </div>
+
+      <div class="panel" id="panelProg">
+        <div class="header" onclick="toggle('Prog')">
+          <h5 style="color: var(--progress)">In Progress</h5>
+          <div class="count" id="countProg">0</div>
+        </div>
+        <div class="body" id="bodyProg"></div>
+      </div>
+
+      <div class="panel" id="panelComp">
+        <div class="header" onclick="toggle('Comp')">
+          <h5 style="color: var(--complete)">Completed</h5>
+          <div class="count" id="countComp">0</div>
+        </div>
+        <div class="body" id="bodyComp"></div>
+      </div>
+    </div>
+  </div> <!-- end dashboard -->
+
+</div> <!-- wrap -->
+
+<!-- Footer mission control -->
+<footer class="control" id="footerControl" style="display:none" role="navigation" aria-label="mission control footer">
+  <div class="icon" id="bellBtn" title="Go to oldest incomplete">
+    <i class="fas fa-bell"></i>
+    <div class="badge" id="notifBadge">0</div>
+  </div>
+
+  <button class="add" id="openAdd" title="Add Mission"><i class="fas fa-bullseye"></i></button>
+
+  <div class="icon" id="recapBtn" title="Open monthly recap">
+    <i class="fas fa-chart-pie"></i>
+  </div>
+</footer>
+
+<!-- Add / Edit Modal -->
+<div id="addModal" class="modal-backdrop" style="display:none">
+  <div class="modal">
+    <div class="header">
+      <h4 id="modalTitle">Add Mission</h4>
+      <button class="close-btn" onclick="closeAdd()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="body">
+      <div style="display:grid;gap:8px">
+        <label>Mission Title</label>
+        <input id="inputTitle" placeholder="MISSION TITLE" />
+        <label>Mission Details</label>
+        <textarea id="inputNotes" rows="4" style="padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04;background:rgba(255,255,255,0.05);color:#fff"></textarea>
+
+        <div style="display:flex;gap:8px">
+          <div style="flex:1">
+            <label>Start Date</label>
+            <input type="date" id="inputStart" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.05);color:#fff" />
+          </div>
+          <div style="flex:1">
+            <label>Due Date</label>
+            <input type="date" id="inputDue" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.05);color:#fff" />
+          </div>
+        </div>
+
+        <label>Status</label>
+        <select id="inputStatus" style="background:rgba(255,255,255,0.05);color:#fff">
+          <option value="not started">Not Started</option>
+          <option value="in progress">In Progress</option>
+          <option value="completed">Completed</option>
+        </select>
+
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
+          <button class="close-btn" onclick="closeAdd()">Cancel</button>
+          <button onclick="saveAdd()" style="background:var(--neon);border:none;padding:10px;border-radius:8px;color:#041225;font-weight:800">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Recap modal (chart) -->
+<div id="recapModal" class="modal-backdrop" style="display:none">
+  <div class="modal">
+    <div class="header">
+      <h4>Monthly Mission Dashboard</h4>
+      <button class="close-btn" onclick="closeRecap()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="body">
+      <canvas id="recapChart" height="220"></canvas>
+      <div style="margin-top:8px;color:var(--muted);font-size:13px">Grafik menampilkan jumlah misi per bulan (berdasarkan Start Date).</div>
+    </div>
+  </div>
+</div>
+
+<!-- Task Detail Modal -->
+<div id="taskModal" class="modal-backdrop" style="display:none">
+  <div class="modal">
+    <div class="header">
+      <h4 id="taskModalTitle">Mission Details</h4>
+      <button class="close-btn" onclick="closeTaskModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="body">
+      <div id="taskModalContent"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+        <button class="close-btn" onclick="closeTaskModal()">Close</button>
+        <button id="taskModalEditBtn" style="background:var(--neon);border:none;padding:10px;border-radius:8px;color:#041225;font-weight:800">Edit</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================
+   Data & Initialization
+   ============================ */
+let tasks = [
+  // demo data (you can remove)
+  {id: 1, title:'PREPARE LAUNCH SEQUENCE', notes:'CHECK TELEMETRY AND FUEL LINES', date:'2025-07-01', due:'2025-07-04', status:'not started'},
+  {id: 2, title:'SYSTEMS DIAGNOSTIC', notes:'RUN FULL DIAG BEFORE LAUNCH', date:'2025-06-25', due:'2025-06-28', status:'in progress'},
+  {id: 3, title:'CREW BRIEFING', notes:'FINAL SAFETY BRIEF', date:'2025-05-20', due:'2025-05-23', status:'completed'}
+];
+
+const loginCard = document.getElementById('loginCard');
+const dashboard = document.getElementById('dashboard');
+const profilePanel = document.getElementById('profilePanel');
+const avatarImg = document.getElementById('avatarImg');
+const avatarInitial = document.getElementById('avatarInitial');
+
+const profileName = document.getElementById('profileName');
+const profileRole = document.getElementById('profileRole');
+
+const badgeTotal = document.getElementById('badgeTotal');
+const badgeNot = document.getElementById('badgeNot');
+const badgeProg = document.getElementById('badgeProg');
+const badgeComp = document.getElementById('badgeComp');
+
+const bodyNot = document.getElementById('bodyNot');
+const bodyProg = document.getElementById('bodyProg');
+const bodyComp = document.getElementById('bodyComp');
+
+const notifBadge = document.getElementById('notifBadge');
+
+const inputName = document.getElementById('inputName');
+const inputRole = document.getElementById('inputRole');
+const btnLogin = document.getElementById('btnLogin');
+
+const btnEditGoal = document.getElementById('btnEditGoal');
+const btnSaveGoal = document.getElementById('btnSaveGoal');
+const goalText = document.getElementById('goalText');
+const goalInput = document.getElementById('goalInput');
+
+const openAdd = document.getElementById('openAdd');
+const addModal = document.getElementById('addModal');
+const inputTitle = document.getElementById('inputTitle');
+const inputNotes = document.getElementById('inputNotes');
+const inputStart = document.getElementById('inputStart');
+const inputDue = document.getElementById('inputDue');
+const inputStatus = document.getElementById('inputStatus');
+let editingId = null;
+
+const recapModal = document.getElementById('recapModal');
+let recapChart = null;
+
+const footerControl = document.getElementById('footerControl');
+const taskModal = document.getElementById('taskModal');
+const taskModalTitle = document.getElementById('taskModalTitle');
+const taskModalContent = document.getElementById('taskModalContent');
+const taskModalEditBtn = document.getElementById('taskModalEditBtn');
+
+/* ----------------------
+   Login: check localStorage
+   ---------------------- */
+document.addEventListener('DOMContentLoaded', ()=>{
+  const stored = JSON.parse(localStorage.getItem('satomic_user') || 'null');
+  if(stored && stored.name){
+    doLogin(stored.name, stored.role, false);
+  } else {
+    // show login card
+    loginCard.style.display = 'block';
+    footerControl.style.display = 'none';
+  }
+  renderAll();
+});
+
+/* ----------------------
+   Login actions
+   ---------------------- */
+btnLogin.addEventListener('click', ()=>{
+  const name = (inputName.value || '').trim();
+  const role = (inputRole.value || '').trim();
+  if(!name || !role){ alert('Isi nama lengkap dan role'); return; }
+  doLogin(name, role, true);
+});
+
+function doLogin(name, role, save){
+  const upperName = name.toUpperCase();
+  profileName.textContent = upperName;
+  profileRole.textContent = role;
+  // avatar fallback to initial if image missing
+  // keep avatar image if provided file exists as avatar-default.png, else show initials
+  avatarImg.style.display = 'block';
+  avatarInitial.style.display = 'none';
+  // if image can't load it will hide and show initial (onerror)
+  avatarInitial.textContent = upperName.split(' ').map(s=>s[0]||'').slice(0,2).join('');
+  profilePanel.style.display = 'flex';
+  loginCard.style.display = 'none';
+  dashboard.style.display = 'block';
+  footerControl.style.display = 'flex'; // Show footer after login
+  if(save) localStorage.setItem('satomic_user', JSON.stringify({name: upperName, role}));
+}
+
+/* ============================
+   Render & helpers
+   ============================ */
+function renderAll(){
+  renderLists();
+  updateStats();
+  updateNotif();
+}
+
+function renderLists(){
+  // clear
+  bodyNot.innerHTML = '';
+  bodyProg.innerHTML = '';
+  bodyComp.innerHTML = '';
+
+  // sort by date (ascending)
+  const ns = tasks.filter(t=>t.status==='not started').sort((a,b)=> new Date(a.date)-new Date(b.date));
+  const ip = tasks.filter(t=>t.status==='in progress').sort((a,b)=> new Date(a.date)-new Date(b.date));
+  const cp = tasks.filter(t=>t.status==='completed').sort((a,b)=> new Date(b.date)-new Date(a.date));
+
+  if(ns.length===0) bodyNot.innerHTML = '<div style="color:var(--muted);padding:8px">No missions</div>';
+  if(ip.length===0) bodyProg.innerHTML = '<div style="color:var(--muted);padding:8px">No missions</div>';
+  if(cp.length===0) bodyComp.innerHTML = '<div style="color:var(--muted);padding:8px">No missions</div>';
+
+  ns.forEach(t=> bodyNot.appendChild(createTaskNode(t)));
+  ip.forEach(t=> bodyProg.appendChild(createTaskNode(t)));
+  cp.forEach(t=> bodyComp.appendChild(createTaskNode(t)));
+}
+
+function createTaskNode(t){
+  const el = document.createElement('div');
+  el.className = 'task';
+  el.id = 'task-'+t.id;
+  el.innerHTML = `
+    <div class="title" onclick="showTaskDetails(${t.id})" style="cursor:pointer">${escapeHtml(t.title)}</div>
+    <div class="notes">${escapeHtml(t.notes)}</div>
+    <div class="meta">
+      <div>
+        <div style="font-size:13px;color:var(--muted)">${formatDate(t.date)}</div>
+        <div style="font-size:12px;color:var(--muted)">Due: ${formatDate(t.due)}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="pill ${t.status==='not started' ? 'not' : t.status==='in progress' ? 'progress' : 'complete'}">${t.status.toUpperCase()}</div>
+        <div style="margin-top:8px" class="task-actions">
+          <button onclick="startEdit(${t.id})"><i class="fas fa-edit"></i></button>
+          <button onclick="removeTask(${t.id})"><i class="fas fa-trash"></i></button>
+        </div>
+      </div>
+    </div>
+  `;
+  return el;
+}
+
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function formatDate(d){
+  if(!d) return 'N/A';
+  const dt = new Date(d);
+  if(isNaN(dt)) return d;
+  return dt.toLocaleDateString();
+}
+
+function updateStats(){
+  const totalCount = tasks.length;
+  const notCount = tasks.filter(t=>t.status==='not started').length;
+  const progCount = tasks.filter(t=>t.status==='in progress').length;
+  const compCount = tasks.filter(t=>t.status==='completed').length;
+  
+  badgeTotal.textContent = totalCount;
+  badgeNot.textContent = notCount;
+  badgeProg.textContent = progCount;
+  badgeComp.textContent = compCount;
+
+  document.getElementById('countNot').textContent = notCount;
+  document.getElementById('countProg').textContent = progCount;
+  document.getElementById('countComp').textContent = compCount;
+}
+
+function updateNotif(){
+  const n = tasks.filter(t=>t.status!=='completed').length;
+  notifBadge.textContent = n;
+  notifBadge.style.display = n>0 ? 'block' : 'none';
+}
+
+/* ============================
+   Add / Edit flows
+   ============================ */
+openAdd.addEventListener('click', ()=>{
+  editingId = null;
+  document.getElementById('modalTitle').textContent = 'Add Mission';
+  inputTitle.value = '';
+  inputNotes.value = '';
+  // default start today and due +3
+  const today = new Date();
+  inputStart.valueAsDate = today;
+  const due = new Date(); due.setDate(today.getDate()+3);
+  inputDue.valueAsDate = due;
+  inputStatus.value = 'not started';
+  addModal.style.display = 'flex';
+});
+
+function closeAdd(){ addModal.style.display = 'none'; editingId = null; }
+
+function saveAdd(){
+  const title = (inputTitle.value||'').trim().toUpperCase();
+  if(!title){ alert('Mission title required'); return; }
+  const notes = (inputNotes.value||'').trim().toUpperCase();
+  const date = inputStart.value;
+  const due = inputDue.value;
+  const status = inputStatus.value;
+
+  if(editingId){
+    const idx = tasks.findIndex(t=>t.id===editingId);
+    if(idx>-1){
+      tasks[idx].title = title;
+      tasks[idx].notes = notes;
+      tasks[idx].date = date;
+      tasks[idx].due = due;
+      tasks[idx].status = status;
+    }
+  } else {
+    const id = Date.now() + Math.floor(Math.random()*9999);
+    tasks.push({id, title, notes, date, due, status});
+  }
+  closeAdd();
+  renderAll();
+}
+
+function startEdit(id){
+  const t = tasks.find(x=>x.id===id);
+  if(!t) return;
+  editingId = id;
+  document.getElementById('modalTitle').textContent = 'Edit Mission';
+  inputTitle.value = t.title;
+  inputNotes.value = t.notes;
+  inputStart.value = t.date;
+  inputDue.value = t.due;
+  inputStatus.value = t.status;
+  addModal.style.display = 'flex';
+}
+
+function removeTask(id){
+  if(!confirm('Delete mission?')) return;
+  tasks = tasks.filter(t=>t.id!==id);
+  renderAll();
+}
+
+/* ============================
+   Task Details Modal
+   ============================ */
+function showTaskDetails(id){
+  const t = tasks.find(x=>x.id===id);
+  if(!t) return;
+  
+  taskModalTitle.textContent = t.title;
+  taskModalContent.innerHTML = `
+    <div style="margin-bottom:16px">
+      <div style="font-size:14px;color:var(--muted);margin-bottom:4px">Description</div>
+      <div>${escapeHtml(t.notes)}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div>
+        <div style="font-size:14px;color:var(--muted);margin-bottom:4px">Start Date</div>
+        <div>${formatDate(t.date)}</div>
+      </div>
+      <div>
+        <div style="font-size:14px;color:var(--muted);margin-bottom:4px">Due Date</div>
+        <div>${formatDate(t.due)}</div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:14px;color:var(--muted);margin-bottom:4px">Status</div>
+      <div class="pill ${t.status==='not started' ? 'not' : t.status==='in progress' ? 'progress' : 'complete'}">${t.status.toUpperCase()}</div>
+    </div>
+  `;
+  
+  taskModalEditBtn.onclick = function() {
+    closeTaskModal();
+    startEdit(id);
+  };
+  
+  taskModal.style.display = 'flex';
+}
+
+function closeTaskModal(){
+  taskModal.style.display = 'none';
+}
+
+/* ============================
+   Bell behaviour: go to oldest incomplete
+   ============================ */
+document.getElementById('bellBtn').addEventListener('click', ()=>{
+  const incomplete = tasks.filter(t=>t.status!=='completed');
+  if(incomplete.length===0){ 
+    alert('All missions completed'); 
+    return; 
+  }
+  incomplete.sort((a,b)=> new Date(a.date)-new Date(b.date));
+  const oldest = incomplete[0];
+  
+  // Show task details in modal
+  showTaskDetails(oldest.id);
+});
+
+/* ============================
+   Collapsible panels
+   ============================ */
+function toggle(k){
+  const map = {Not:'bodyNot', Prog:'bodyProg', Comp:'bodyComp'};
+  const id = map[k];
+  const el = document.getElementById(id);
+  if(!el) return;
+  if(getComputedStyle(el).display === 'none') el.style.display = 'block'; else el.style.display = 'none';
+}
+
+/* ============================
+   Monthly goal edit/save
+   ============================ */
+btnEditGoal.addEventListener('click', ()=>{
+  goalInput.style.display = 'inline-block';
+  goalInput.value = goalText.textContent;
+  goalText.style.display = 'none';
+  btnEditGoal.style.display = 'none';
+  btnSaveGoal.style.display = 'inline-block';
+  goalInput.focus();
+});
+btnSaveGoal.addEventListener('click', ()=>{
+  const v = (goalInput.value || '').trim().toUpperCase();
+  if(!v){ alert('Goal cannot be empty'); return; }
+  goalText.textContent = v;
+  goalInput.style.display = 'none';
+  goalText.style.display = 'block';
+  btnEditGoal.style.display = 'inline-block';
+  btnSaveGoal.style.display = 'none';
+});
+
+/* ============================
+   Recap modal (Chart.js)
+   ============================ */
+document.getElementById('recapBtn').addEventListener('click', openRecap);
+function openRecap(){
+  buildChart();
+  recapModal.style.display = 'flex';
+}
+function closeRecap(){ recapModal.style.display = 'none'; }
+
+function buildChart(){
+  // aggregate by Start Date month YYYY-MM
+  const counts = {};
+  tasks.forEach(t=>{
+    if(!t.date) return;
+    const dt = new Date(t.date);
+    if(isNaN(dt)) return;
+    const key = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0');
+    counts[key] = (counts[key]||0) + 1;
+  });
+  const keys = Object.keys(counts).sort();
+  // show last 6 months
+  const show = keys.slice(-6);
+  const labels = show.map(k=>{
+    const [y,m] = k.split('-'); return new Date(y,m-1,1).toLocaleString(undefined,{month:'short',year:'numeric'});
+  });
+  const data = show.map(k=>counts[k]||0);
+
+  const ctx = document.getElementById('recapChart').getContext('2d');
+  if(recapChart) recapChart.destroy();
+  recapChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{label:'Missions', data, backgroundColor: 'rgba(123,97,255,0.9)', borderRadius:6}]
+    },
+    options: {
+      plugins: {legend:{display:false}},
+      scales: { y: {beginAtZero:true, ticks:{precision:0}} }
+    }
+  });
+}
+
+/* ============================
+   Utilities & initial render
+   ============================ */
+function seedIfEmpty(){
+  // already seeded above with sample tasks; you can clear if wanted
+}
+seedIfEmpty();
+
+// Ensure default display values
+document.getElementById('bodyNot').style.display = 'block';
+document.getElementById('bodyProg').style.display = 'block';
+document.getElementById('bodyComp').style.display = 'block';
+
+// Keep mission title & notes uppercase while typing in modal
+inputTitle.addEventListener('input', (e)=>{ e.target.value = e.target.value.toUpperCase(); });
+inputNotes.addEventListener('input', (e)=>{ e.target.value = e.target.value.toUpperCase(); });
+</script>
+</body>
+</html>
